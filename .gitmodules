@@ -1,0 +1,12 @@
+[submodule "rtl/T80"]
+	path = rtl/T80
+	url = https://github.com/mist-devel/T80.git
+[submodule "rtl/ym2149_audio"]
+	path = rtl/ym2149_audio
+	url = https://github.com/dnotq/ym2149_audio.git
+[submodule "rtl/sn76489_audio"]
+	path = rtl/sn76489_audio
+	url = https://github.com/dnotq/sn76489_audio.git
+[submodule "DeMiSTify"]
+	path = DeMiSTify
+	url = https://github.com/robinsonb5/DeMiSTify.git
