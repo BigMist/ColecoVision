@@ -177,7 +177,7 @@ wire [14:0] ram_a = (extram)            ? cpu_ram_a       :
                     (sg1000)            ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
 
-spram #(15) ram
+spram #(15) ram   //14 for SiDi and MiST
 (
 	.clock(clk_sys),
 	.address(ram_a),
