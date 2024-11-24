@@ -7,6 +7,6 @@
 [submodule "rtl/sn76489_audio"]
 	path = rtl/sn76489_audio
 	url = https://github.com/dnotq/sn76489_audio.git
-[submodule "DeMiSTify"]
-	path = DeMiSTify
-	url = https://github.com/robinsonb5/DeMiSTify.git
+[submodule "mist-modules"]
+	path = mist-modules
+	url = https://github.com/mist-devel/mist-modules.git

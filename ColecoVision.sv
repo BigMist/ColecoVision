@@ -19,42 +19,189 @@
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 //============================================================================
 
-module guest_mist
-(       
-        output        LED,                                              
-        output        VGA_HS,
-        output        VGA_VS,
-        output        AUDIO_L,
-        output        AUDIO_R, 
-		  output [15:0]  DAC_L, 
-		  output [15:0]  DAC_R, 
-        input         TAPE_IN,
-        input         UART_RX,
-        output        UART_TX,
-        input         SPI_SCK,
-        output        SPI_DO,
-        input         SPI_DI,
-        input         SPI_SS2,
-        input         SPI_SS3,
-		  input         SPI_SS4,
-        input         CONF_DATA0,
-        input         CLOCK_27,
-        output  [5:0] VGA_R,
-        output  [5:0] VGA_G,
-        output  [5:0] VGA_B,
-		  
-		  output [12:0] SDRAM_A,
-		  inout  [15:0] SDRAM_DQ,
-		  output        SDRAM_DQML,
-        output        SDRAM_DQMH,
-        output        SDRAM_nWE,
-        output        SDRAM_nCAS,
-        output        SDRAM_nRAS,
-        output        SDRAM_nCS,
-        output  [1:0] SDRAM_BA,
-        output        SDRAM_CLK,
-        output        SDRAM_CKE
+`default_nettype none
+
+module guest_top
+(
+	input         CLOCK_27,
+`ifdef USE_CLOCK_50
+   input         CLOCK_50,
+`endif
+	output        LED,
+	output [VGA_BITS-1:0] VGA_R,
+	output [VGA_BITS-1:0] VGA_G,
+	output [VGA_BITS-1:0] VGA_B,
+	output        VGA_HS,
+	output        VGA_VS,
+
+`ifdef USE_HDMI
+	output        HDMI_RST,
+	output  [7:0] HDMI_R,
+	output  [7:0] HDMI_G,
+	output  [7:0] HDMI_B,
+	output        HDMI_HS,
+	output        HDMI_VS,
+	output        HDMI_PCLK,
+	output        HDMI_DE,
+	inout         HDMI_SDA,
+	inout         HDMI_SCL,
+	input         HDMI_INT,
+`endif
+
+	input         SPI_SCK,
+	inout         SPI_DO,
+	input         SPI_DI,
+	input         SPI_SS2,    // data_io
+	input         SPI_SS3,    // OSD
+	input         CONF_DATA0, // SPI_SS for user_io
+
+`ifdef USE_QSPI
+	input         QSCK,
+	input         QCSn,
+	inout   [3:0] QDAT,
+`endif
+`ifndef NO_DIRECT_UPLOAD
+	input         SPI_SS4,
+`endif
+
+	output [12:0] SDRAM_A,
+	inout  [15:0] SDRAM_DQ,
+	output        SDRAM_DQML,
+	output        SDRAM_DQMH,
+	output        SDRAM_nWE,
+	output        SDRAM_nCAS,
+	output        SDRAM_nRAS,
+	output        SDRAM_nCS,
+	output  [1:0] SDRAM_BA,
+	output        SDRAM_CLK,
+	output        SDRAM_CKE,
+
+`ifdef DUAL_SDRAM
+	output [12:0] SDRAM2_A,
+	inout  [15:0] SDRAM2_DQ,
+	output        SDRAM2_DQML,
+	output        SDRAM2_DQMH,
+	output        SDRAM2_nWE,
+	output        SDRAM2_nCAS,
+	output        SDRAM2_nRAS,
+	output        SDRAM2_nCS,
+	output  [1:0] SDRAM2_BA,
+	output        SDRAM2_CLK,
+	output        SDRAM2_CKE,
+`endif
+
+	output        AUDIO_L,
+	output        AUDIO_R,
+`ifdef I2S_AUDIO
+	output        I2S_BCK,
+	output        I2S_LRCK,
+	output        I2S_DATA,
+`endif
+`ifdef SPDIF_AUDIO
+	output        SPDIF,
+`endif
+`ifdef USE_AUDIO_IN
+	input         AUDIO_IN,
+`endif
+
+`ifdef PIN_REFLECTION
+	output        joy_clk,
+   input         joy_xclk,
+	
+   output        joy_load,
+   input         joy_xload,
+   
+	input         joy_data,
+   output        joy_xdata,	
+`endif
+	
+`ifdef USE_EXTBUS	
+	inout [23:0]  BUS_A = 24'b0,
+	inout  [15:0]  BUS_D = 16'b0,
+	inout         BUS_USER1,
+	inout         BUS_USER2,
+	inout         BUS_USER3,
+	inout         BUS_USER5,
+	inout         BUS_USER6,
+	inout         BUS_USER7,
+	inout         BUS_N41,
+	inout         BUS_N42,
+	inout         BUS_N43,
+	inout         BUS_N44,
+	inout         BUS_N45,
+	inout         BUS_N46,
+	inout         BUS_N47,
+	inout         BUS_N48,
+	inout         BUS_nRESET,
+	inout         BUS_nM1,
+	inout         BUS_nMREQ,
+	inout         BUS_nIORQ,
+	inout         BUS_nRD,
+	inout         BUS_nWR,
+	inout         BUS_nRFSH,
+	inout         BUS_nHALT,
+	inout         BUS_nBUSAK,
+	inout reg     BUS_CLK,
+	inout         BUS_nINT,
+	inout         BUS_nWAIT,
+	input         BUS_RX,
+	output        BUS_TX,
+`endif
+   input         UART_RX,
+	output        UART_TX
 );
+
+`ifdef NO_DIRECT_UPLOAD
+localparam bit DIRECT_UPLOAD = 0;
+wire SPI_SS4 = 1;
+`else
+localparam bit DIRECT_UPLOAD = 1;
+`endif
+
+`ifdef USE_QSPI
+localparam bit QSPI = 1;
+assign QDAT = 4'hZ;
+`else
+localparam bit QSPI = 0;
+`endif
+
+`ifdef VGA_8BIT
+localparam VGA_BITS = 8;
+`else
+localparam VGA_BITS = 6;
+`endif
+
+`ifdef USE_HDMI
+localparam bit HDMI = 1;
+assign HDMI_RST = 1'b1;
+`else
+localparam bit HDMI = 0;
+`endif
+
+`ifdef BIG_OSD
+localparam bit BIG_OSD = 1;
+`define SEP "-;",
+`else
+localparam bit BIG_OSD = 0;
+`define SEP
+`endif
+
+// remove this if the 2nd chip is actually used
+`ifdef DUAL_SDRAM
+assign SDRAM2_A = 13'hZZZZ;
+assign SDRAM2_BA = 0;
+assign SDRAM2_DQML = 0;
+assign SDRAM2_DQMH = 0;
+assign SDRAM2_CKE = 0;
+assign SDRAM2_CLK = 0;
+assign SDRAM2_nCS = 1;
+assign SDRAM2_DQ = 16'hZZZZ;
+assign SDRAM2_nCAS = 1;
+assign SDRAM2_nRAS = 1;
+assign SDRAM2_nWE = 1;
+`endif
+
+
 
 assign LED   = ioctl_download;
 
@@ -65,9 +212,14 @@ parameter CONF_STR = {
 	"Coleco;;",
 	"F,COLBINROM,Load Cart;",
 	"F,SG ,Load SG-1000;",
+`ifdef USE_EXTBUS
+	"O2,Cartridge ,Internal,External;",
+`endif	
+	`SEP
 	"O79,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%;",
 	"O3,Joysticks swap,No,Yes;",
 	"O45,RAM Size,1KB,8KB,SGM;",
+	`SEP
 	"T0,Reset;",
 	"V,v",`BUILD_DATE
 };
@@ -78,7 +230,7 @@ wire clk_sys;
 wire pll_locked;
 pll pll
 (
-        .inclk0(CLOCK_27),
+        .inclk0(CLOCK_50),
         .areset(0),
         .c0(clk_sys),
         .locked(pll_locked)
@@ -98,6 +250,7 @@ end
 wire [31:0] status;
 wire  [1:0] buttons;
 
+
 wire [31:0] joy0, joy1;
 
 wire        ioctl_download;
@@ -105,54 +258,125 @@ wire  [7:0] ioctl_index;
 wire        ioctl_wr;
 wire [24:0] ioctl_addr;
 wire  [7:0] ioctl_dout;
-wire        forced_scandoubler;
-wire [10:0] ps2_key;
+wire        scandoubler_disable;
 wire ypbpr;
+wire no_csync;
+wire  [1:0] switches;
+wire        key_pressed;
+wire [7:0]  key_code;
+wire        key_strobe;
+wire        key_extended;
 
-user_io #(.STRLEN($size(CONF_STR)>>3)) user_io
-(
-	.clk_sys             (clk_sys          ),
-   .clk_sd              (clk_sys          ),
-	.SPI_SS_IO           (CONF_DATA0),
-	.SPI_CLK             (SPI_SCK),
-	.SPI_MOSI            (SPI_DI),
-	.SPI_MISO            (SPI_DO),
+//user_io #(.STRLEN($size(CONF_STR)>>3)) user_io
+//(
+//	.clk_sys             (clk_sys          ),
+//   .clk_sd              (clk_sys          ),
+//	.SPI_SS_IO           (CONF_DATA0),
+//	.SPI_CLK             (SPI_SCK),
+//	.SPI_MOSI            (SPI_DI),
+//	.SPI_MISO            (SPI_DO),
+//
+//	.conf_str            (CONF_STR),
+//	.status              (status),
+//	.scandoubler_disable (forced_scandoubler),
+//	.ypbpr               (ypbpr),
+//	.no_csync            (),
+//	.buttons             (buttons),
+//	
+//	.ps2_key             (ps2_key),
+//
+//
+//	.joystick_0          (joy0          ),
+//	.joystick_1          (joy1          )
+//);
+//
+//data_io data_io
+//(
+//	.clk_sys             (clk_sys),
+//	.SPI_SCK             (SPI_SCK),
+//	.SPI_DI              (SPI_DI),
+//	.SPI_SS2             (SPI_SS2),
+//
+//	.clkref_n            (),
+//	.ioctl_fileext       (),
+//	.ioctl_wr            (ioctl_wr),
+//	.ioctl_addr          (ioctl_addr),
+//	.ioctl_dout          (ioctl_dout),
+//	.ioctl_download      (ioctl_download),
+//	.ioctl_index         (ioctl_index)
+//);
 
-	.conf_str            (CONF_STR),
-	.status              (status),
-	.scandoubler_disable (forced_scandoubler),
-	.ypbpr               (ypbpr),
-	.no_csync            (),
-	.buttons             (buttons),
-	
-	.ps2_key             (ps2_key),
+`ifdef PIN_REFLECTION
+assign joy_clk = joy_xclk;
+assign joy_load = joy_xload;
+assign joy_xdata = joy_data;
+`endif
 
 
-	.joystick_0          (joy0          ),
-	.joystick_1          (joy1          )
+wire [10:0] ps2_key;
+assign ps2_key = {key_strobe,key_pressed,key_extended,key_code}; 
+
+
+user_io #(
+	.STRLEN($size(CONF_STR)>>3),
+	.FEATURES(32'h0 | (BIG_OSD << 13) | (HDMI << 14))) 
+user_io
+( 
+    .clk_sys(clk_sys),
+    .clk_sd(clk_sys),
+    .SPI_SS_IO(CONF_DATA0),
+    .SPI_CLK(SPI_SCK),
+    .SPI_MOSI(SPI_DI),
+    .SPI_MISO(SPI_DO),
+
+    .conf_str(CONF_STR),
+    .status(status),
+    .scandoubler_disable(scandoubler_disable),
+    .ypbpr(ypbpr),
+    .no_csync(no_csync),
+    .buttons(buttons),
+    .joystick_0(joy0),
+    .joystick_1(joy1),
+    .key_strobe(key_strobe),
+    .key_code(key_code),
+    .key_pressed(key_pressed),
+    .key_extended(key_extended),
+
+	 
+`ifdef USE_HDMI
+	 .i2c_start      (i2c_start      ),
+	 .i2c_read       (i2c_read       ),
+	 .i2c_addr       (i2c_addr       ),
+	 .i2c_subaddr    (i2c_subaddr    ),
+	 .i2c_dout       (i2c_dout       ),
+	 .i2c_din        (i2c_din        ),
+	 .i2c_ack        (i2c_ack        ),
+	 .i2c_end        (i2c_end        ),
+	`endif
+	 .switches(switches),
+
 );
 
-data_io data_io
-(
-	.clk_sys             (clk_sys),
-	.SPI_SCK             (SPI_SCK),
-	.SPI_DI              (SPI_DI),
-	.SPI_SS2             (SPI_SS2),
-
-	.clkref_n            (),
-	.ioctl_fileext       (),
-	.ioctl_wr            (ioctl_wr),
-	.ioctl_addr          (ioctl_addr),
-	.ioctl_dout          (ioctl_dout),
-	.ioctl_download      (ioctl_download),
-	.ioctl_index         (ioctl_index)
+data_io data_io (
+    // SPI interface
+    .SPI_SCK        ( SPI_SCK ),
+    .SPI_SS2        ( SPI_SS2 ),
+    .SPI_DI         ( SPI_DI  ),
+    // ram interface
+    .clk_sys        ( clk_sys ),
+    //.clkref_n       ( ~clk_ref  ),
+    .ioctl_download ( ioctl_download ),
+    .ioctl_index    ( ioctl_index ),
+    .ioctl_wr       ( ioctl_wr ),
+    .ioctl_addr     ( ioctl_addr ),
+    .ioctl_dout     ( ioctl_dout )
 );
 
 
 
 /////////////////  RESET  /////////////////////////
 
-wire reset =  status[0] | buttons[1] | ioctl_download;
+wire reset =  status[0] | buttons[1] | ioctl_download | ~BUS_A[15];
 
 /////////////////  Memory  ////////////////////////
 
@@ -204,6 +428,16 @@ wire [19:0] cart_a;
 wire  [7:0] cart_d;
 wire        cart_rd;
 
+
+`ifdef USE_EXTBUS
+assign BUS_A[11:0] = cart_a[11:0];
+assign BUS_nIORQ=cart_a[12];
+assign BUS_A[13]=cart_a[13];
+assign BUS_A[12]=cart_a[14];
+wire ext_cart_d= cart_rd ? BUS_D[7:0] : 8'bZ;
+`endif
+
+
 reg [5:0] cart_pages;
 always @(posedge clk_sys) if(ioctl_wr) cart_pages <= ioctl_addr[19:14];
 
@@ -240,23 +474,66 @@ end
 ////////////////  Console  ////////////////////////
 
 wire [13:0] audio;
-assign DAC_L = {audio,2'd0};
-assign DAC_R = {audio,2'd0};
+wire [15:0] DAC_L,DAC_R;
 
-dac #(14) dac_l (
-   .clk_i        (clk_sys),
-   .res_n_i      (1      ),
-   .dac_i        (audio  ),
-   .dac_o        (AUDIO_L)
+assign DAC_L = {1'b0,audio[13:0],1'b0};
+assign DAC_R = DAC_L;
+
+`ifdef I2S_AUDIO
+
+wire [31:0] clk_rate =  32'd42_666_000;
+
+i2s i2s (
+        .reset(reset),
+        .clk(clk_sys),
+        .clk_rate(clk_rate),
+
+        .sclk(I2S_BCK),
+        .lrclk(I2S_LRCK),
+        .sdata(I2S_DATA),
+
+        .left_chan (DAC_L),
+        .right_chan(DAC_R)
 );
+`ifdef I2S_AUDIO_HDMI
+assign HDMI_MCLK = 0;
+always @(posedge clk_sys) begin
+	HDMI_BCK <= I2S_BCK;
+	HDMI_LRCK <= I2S_LRCK;
+	HDMI_SDATA <= I2S_DATA;
+end
+`endif
+`endif
 
-dac #(14) dac_r (
-   .clk_i        (clk_sys),
-   .res_n_i      (1      ),
-   .dac_i        (audio  ),
-   .dac_o        (AUDIO_R)
+`ifdef SPDIF_AUDIO
+spdif spdif (
+	.clk_i(clk_sys),
+	.rst_i(1'b0),
+	.clk_rate_i(clk_rate),
+	.spdif_o(SPDIF),
+	.sample_i({DAC_L,DAC_R})
 );
+`endif
 
+dac #(
+   .c_bits	(14))
+audiodac_l(
+   .clk_i	(clk_sys	),
+   .res_n_i	(1	),
+   .dac_i	(audio),
+   .dac_o	(AUDIO_L)
+  );
+
+dac #(
+   .c_bits	(16))
+audiodac_r(
+   .clk_i	(clk_sys	),
+   .res_n_i	(1	),
+   .dac_i	(audio),
+   .dac_o	(AUDIO_R)
+  );
+
+  
 
 wire CLK_VIDEO = clk_sys;
 
@@ -271,8 +548,8 @@ wire [1:0] ctrl_p8;
 wire [1:0] ctrl_p9 = 2'b11;
 
 wire [7:0] R,G,B;
-wire hblank, vblank;
-wire hsync, vsync;
+wire HBlank, VBlank;
+wire HSync, VSync;
 
 wire [31:0] joya = status[3] ? joy1 : joy0;
 wire [31:0] joyb = status[3] ? joy0 : joy1;
@@ -314,55 +591,131 @@ cv_console console
 
 	.cart_pages_i(cart_pages),
 	.cart_a_o(cart_a),
-	.cart_d_i(cart_d),
+`ifdef USE_EXTBUS
+	.cart_d_i(status[2] ? ext_cart_d : cart_d),
+`else
+   .cart_d_i(cart_d),
+`endif
+	
 	.cart_rd(cart_rd),
 
+`ifdef USE_EXTBUS
+  	.cart_en_80_n_o (BUS_A[14]),
+   .cart_en_a0_n_o (BUS_nRESET),
+   .cart_en_c0_n_o (BUS_CLK),
+   .cart_en_e0_n_o (BUS_nRD),
+`endif
+	
 	.rgb_r_o(R),
 	.rgb_g_o(G),
 	.rgb_b_o(B),
-	.hsync_n_o(hsync),
-	.vsync_n_o(vsync),
+	.hsync_n_o(HSync),
+	.vsync_n_o(VSync),
+	.hblank_o (HBlank),
+	.vblank_o (VBlank),
 
 	.audio_o(audio)
 );
 
 
-wire [2:0] scale = status[9:7];
+//wire [2:0] scale = status[9:7];
 
 reg hs_o, vs_o;
 always @(posedge CLK_VIDEO) begin
-	hs_o <= ~hsync;
-	if(~hs_o & ~hsync) vs_o <= ~vsync;
+	hs_o <= ~HSync;
+	if(~hs_o & ~HSync) vs_o <= ~VSync;
 end
 
-video_mixer #(.LINE_LENGTH(290), .HALF_DEPTH(0)) video_mixer
-(
-	.clk_sys(clk_sys),
-	.ce_pix(ce_5m3),
-	.ce_pix_actual(ce_5m3),
-	.SPI_SCK(SPI_SCK),
-	.SPI_SS3(SPI_SS3),
-	.SPI_DI(SPI_DI),
-	.scanlines(forced_scandoubler ? 2'b00 : {status[9:7] == 3, status[9:7] == 2}),
-	.scandoubler_disable(forced_scandoubler),
-	.hq2x(status[9:7]==1),
-	.ypbpr(ypbpr),
-	.ypbpr_full(1),
-	.R(R[7:2]),
-	.G(G[7:2]),
-	.B(B[7:2]),
-	.mono(0),
-	.HSync(hs_o),
-	.VSync(vs_o),
-	.line_start(hblank),
-	.VGA_R(VGA_R),
-	.VGA_G(VGA_G),
-	.VGA_B(VGA_B),
-	.VGA_VS(VGA_VS),
-	.VGA_HS(VGA_HS)
+
+ 
+mist_video #(
+    .COLOR_DEPTH(8),
+    .OSD_COLOR(3'd3),
+	 .SD_HCNT_WIDTH(10),
+	 .OUT_COLOR_DEPTH(VGA_BITS),
+	 .BIG_OSD(BIG_OSD),
+	 .USE_BLANKS(1'b1)
+) 
+ mist_video (	
+	.clk_sys      (clk_sys    ),
+	.SPI_SCK      (SPI_SCK    ),
+	.SPI_SS3      (SPI_SS3    ),
+	.SPI_DI       (SPI_DI     ),
+	.R            (R ),
+	.G            (G ),
+	.B            (B ),
+	.HSync        (hs_o),
+	.VSync        (vs_o),
+	.HBlank       (HBlank),
+	.VBlank       (VBlank),
+	.VGA_R        (VGA_R      ),
+	.VGA_G        (VGA_G      ),
+	.VGA_B        (VGA_B      ),
+	.VGA_VS       (VGA_VS     ),
+	.VGA_HS       (VGA_HS     ),
+	.ce_divider   (3'd0       ),
+	.scandoubler_disable(scandoubler_disable),
+	.scanlines(scandoubler_disable ? 2'b00 : {status[9:7] == 3, status[9:7] == 2}),
+	.no_csync     (no_csync),
+	.ypbpr        (ypbpr      )
+	);
+
+`ifdef USE_HDMI
+i2c_master #(42_666_000) i2c_master (
+	.CLK         (clk_hdmi),
+	.I2C_START   (i2c_start),
+	.I2C_READ    (i2c_read),
+	.I2C_ADDR    (i2c_addr),
+	.I2C_SUBADDR (i2c_subaddr),
+	.I2C_WDATA   (i2c_dout),
+	.I2C_RDATA   (i2c_din),
+	.I2C_END     (i2c_end),
+	.I2C_ACK     (i2c_ack),
+
+	//I2C bus
+	.I2C_SCL     (HDMI_SCL),
+	.I2C_SDA     (HDMI_SDA)
+);	
+
+mist_video #(
+	.COLOR_DEPTH(8),
+	.OUT_COLOR_DEPTH(8),
+	.USE_BLANKS(1),
+	.OSD_COLOR(3'b001),
+	.BIG_OSD(BIG_OSD),
+	.VIDEO_CLEANER(1)
+)
+
+hdmi_video (
+	.clk_sys     ( clk_sys   ),
+
+	// OSD SPI interface
+	.SPI_SCK     ( SPI_SCK    ),
+	.SPI_SS3     ( SPI_SS3    ),
+	.SPI_DI      ( SPI_DI     ),
+	.scanlines   (  ),
+	.ce_divider  ( 3'd3       ),
+	.scandoubler_disable (1'b1),
+	.no_csync    ( 1'b1       ),
+	.ypbpr       ( 1'b0       ),
+	.rotate      ( 2'b00      ),
+	.blend       ( 1'b0       ),
+	.R           (R),
+	.G           (G),
+	.B           (B),
+	.HBlank      ( HBlank      ),
+	.VBlank      ( VBlank      ),
+	.HSync       ( hs_o        ),
+	.VSync       ( vs_o        ),
+	.VGA_R       ( HDMI_R      ),
+	.VGA_G       ( HDMI_G      ),
+	.VGA_B       ( HDMI_B      ),
+	.VGA_VS      (HDMI_VS      ),
+	.VGA_HS      (HDMI_HS      ),
+	.VGA_DE      ( HDMI_DE     )
 );
-
-
+assign HDMI_PCLK = clk_sys;
+`endif	
 //////////////// Keypad emulation (by Alan Steremberg) ///////
 
 wire       pressed = ps2_key[9];
