@@ -308,7 +308,9 @@ set_global_assignment -name VERILOG_MACRO "QMTECH=1"
 set_global_assignment -name VERILOG_MACRO "INTERNAL_MT32=1"
 set_global_assignment -name VERILOG_MACRO "PIN_REFLECTION=1"
 set_global_assignment -name VERILOG_MACRO "USE_EXTBUS=1"
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
+set_global_assignment -name SDC_FILE ColecoVision.sdc
+set_global_assignment -name QIP_FILE ../rtl/f18a/f18a.qip
 set_global_assignment -name QIP_FILE "../mist-modules/mist.qip"
 set_global_assignment -name QIP_FILE ../files.qip
 set_global_assignment -name VERILOG_FILE pll.v
-set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

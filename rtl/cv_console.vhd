@@ -68,6 +68,8 @@ entity cv_console is
   port (
     -- Global Interface -------------------------------------------------------
     clk_i           : in  std_logic;
+    clk_25_i        : in  std_logic;
+    clk_100_i       : in  std_logic;
     clk_en_10m7_i   : in  std_logic;
     reset_n_i       : in  std_logic;
     sg1000          : in  std_logic;
@@ -97,10 +99,10 @@ entity cv_console is
     cpu_ram_d_i     : in  std_logic_vector( 7 downto 0);
     cpu_ram_d_o     : out std_logic_vector( 7 downto 0);
     -- Video RAM Interface ----------------------------------------------------
-    vram_a_o        : out std_logic_vector(13 downto 0);
-    vram_we_o       : out std_logic;
-    vram_d_o        : out std_logic_vector( 7 downto 0);
-    vram_d_i        : in  std_logic_vector( 7 downto 0);
+--    vram_a_o        : out std_logic_vector(13 downto 0);
+--    vram_we_o       : out std_logic;
+--    vram_d_o        : out std_logic_vector( 7 downto 0);
+--    vram_d_i        : in  std_logic_vector( 7 downto 0);
     -- Cartridge ROM Interface ------------------------------------------------
     cart_a_o        : out std_logic_vector(19 downto 0);
     cart_pages_i    : in  std_logic_vector( 5 downto 0);
@@ -124,7 +126,7 @@ entity cv_console is
     vblank_o        : out std_logic;
     comp_sync_n_o   : out std_logic;
     -- Audio Interface --------------------------------------------------------
-    audio_o         : out unsigned(13 downto 0)
+    audio_o         : out std_logic_vector(13 downto 0)
   );
 
 end cv_console;
@@ -162,6 +164,9 @@ architecture struct of cv_console is
   -- VDP18 signal
   signal d_from_vdp_s     : std_logic_vector( 7 downto 0);
   signal vdp_int_n_s      : std_logic;
+  signal red_s     : std_logic_vector( 3 downto 0);
+  signal grn_s     : std_logic_vector( 3 downto 0);
+  signal blu_s     : std_logic_vector( 3 downto 0);
 
   -- SN76489 signal
   signal psg_ready_s      : std_logic;
@@ -209,8 +214,7 @@ architecture struct of cv_console is
 begin
 
   vdd_s <= '1';
-  audio_o <= psg_b_audio_s + psg_a_audio_s;
-
+  audio_o <= std_logic_vector(psg_b_audio_s + psg_a_audio_s);
   int_n_s <= ctrl_int_n_s  when sg1000 = '0' else vdp_int_n_s;
   nmi_n_s <= vdp_int_n_s   when sg1000 = '0' else joy0_i(7) and joy1_i(7);
 
@@ -305,17 +309,49 @@ begin
   -----------------------------------------------------------------------------
 
 
+--  -----------------------------------------------------------------------------
+--  -- TMS9928A Video Display Processor
+--  -----------------------------------------------------------------------------
+--  vdp18_b : work.vdp18_core
+--    generic map (
+--      is_pal_g      => is_pal_g,
+--      compat_rgb_g  => compat_rgb_g
+--    )
+--    port map (
+--      clk_i         => clk_i,
+--      clk_en_10m7_i => clk_en_10m7_i,
+--      reset_n_i     => reset_n_s,
+--      csr_n_i       => vdp_r_n_s,
+--      csw_n_i       => vdp_w_n_s,
+--      mode_i        => a_s(0),
+--      int_n_o       => vdp_int_n_s,
+--      cd_i          => d_from_cpu_s,
+--      cd_o          => d_from_vdp_s,
+--      vram_we_o     => vram_we_o,
+--      vram_a_o      => vram_a_o,
+--      vram_d_o      => vram_d_o,
+--      vram_d_i      => vram_d_i,
+--      col_o         => col_o,
+--      rgb_r_o       => rgb_r_o,
+--      rgb_g_o       => rgb_g_o,
+--      rgb_b_o       => rgb_b_o,
+--      hsync_n_o     => hsync_n_o,
+--      vsync_n_o     => vsync_n_o,
+--      --blank_n_o     => blank_n_o,
+--      --border_i      => border_i,
+--      hblank_o      => hblank_o,
+--      vblank_o      => vblank_o,
+--      comp_sync_n_o => comp_sync_n_o
+--    );
+
   -----------------------------------------------------------------------------
   -- TMS9928A Video Display Processor
   -----------------------------------------------------------------------------
-  vdp18_b : work.vdp18_core
-    generic map (
-      is_pal_g      => is_pal_g,
-      compat_rgb_g  => compat_rgb_g
-    )
+  vdp18_b : work.f18a_core
     port map (
-      clk_i         => clk_i,
-      clk_en_10m7_i => clk_en_10m7_i,
+	   
+      clk_100m0_i   => clk_100_i,
+      clk_25m0_i    => clk_25_i,
       reset_n_i     => reset_n_s,
       csr_n_i       => vdp_r_n_s,
       csw_n_i       => vdp_w_n_s,
@@ -323,24 +359,27 @@ begin
       int_n_o       => vdp_int_n_s,
       cd_i          => d_from_cpu_s,
       cd_o          => d_from_vdp_s,
-      vram_we_o     => vram_we_o,
-      vram_a_o      => vram_a_o,
-      vram_d_o      => vram_d_o,
-      vram_d_i      => vram_d_i,
-      col_o         => col_o,
-      rgb_r_o       => rgb_r_o,
-      rgb_g_o       => rgb_g_o,
-      rgb_b_o       => rgb_b_o,
-      hsync_n_o     => hsync_n_o,
-      vsync_n_o     => vsync_n_o,
-      --blank_n_o     => blank_n_o,
-      --border_i      => border_i,
+      red_o         => red_s,
+      grn_o         => grn_s,
+      blu_o         => blu_s,
+      hsync_o       => hsync_n_o,
+      vsync_o       => vsync_n_o,
+      blank_o       => blank_n_o,
       hblank_o      => hblank_o,
       vblank_o      => vblank_o,
-      comp_sync_n_o => comp_sync_n_o
+		sprite_max_i  => '0',
+      scanlines_i   => '0', 
+		
+		spi_clk_o     =>open,
+      spi_cs_o      =>open,
+      spi_mosi_o    =>open,
+      spi_miso_i    => 'Z'
     );
-
-
+	 
+	rgb_r_o <= red_s & red_s;
+	rgb_g_o <= grn_s & grn_s;
+	rgb_b_o <= blu_s & blu_s;
+	
   -----------------------------------------------------------------------------
   -- SN76489 Programmable Sound Generator
   -----------------------------------------------------------------------------

@@ -1,8 +1,13 @@
 //============================================================================
 //  ColecoVision
 //
-//  Port to MiSTer
-//  Copyright (C) 2017-2019 Sorgelig
+//  Port to BigMist
+//  
+//  Original Core:  Copyright (c) 2006, Arnim Laeuger (arnim.laeuger@gmx.net)
+//  Port to MiST by Winfried Soltys
+//  SG1000 and other enhancemntes by György Szombathelyi
+//  Port to Mister:  Copyright (C) 2017-2019 Sorgelig
+//  Port to BigMist: Copyleft (C) 2024 Rampa
 //
 //  This program is free software; you can redistribute it and/or modify it
 //  under the terms of the GNU General Public License as published by the Free
@@ -46,6 +51,13 @@ module guest_top
 	inout         HDMI_SDA,
 	inout         HDMI_SCL,
 	input         HDMI_INT,
+`endif
+
+`ifdef I2S_AUDIO_HDMI
+	output        HDMI_MCLK,
+	output        HDMI_BCK,
+	output        HDMI_LRCK,
+	output        HDMI_SDATA,
 `endif
 
 	input         SPI_SCK,
@@ -201,6 +213,18 @@ assign SDRAM2_nRAS = 1;
 assign SDRAM2_nWE = 1;
 `endif
 
+`ifdef USE_HDMI
+wire        i2c_start;
+wire        i2c_read;
+wire  [6:0] i2c_addr;
+wire  [7:0] i2c_subaddr;
+wire  [7:0] i2c_dout;
+wire  [7:0] i2c_din;
+wire        i2c_ack;
+wire        i2c_end;
+`endif
+
+
 
 
 assign LED   = ioctl_download;
@@ -230,19 +254,38 @@ wire clk_sys;
 wire pll_locked;
 pll pll
 (
+`ifdef USE_CLOCK_50
         .inclk0(CLOCK_50),
+`else
+        .inclk0(CLOCK_27),
+`endif		  
         .areset(0),
         .c0(clk_sys),
         .locked(pll_locked)
 );
+
+wire clk_100,clk_25;
+
+pll_vdp pll_vdp
+(
+`ifdef USE_CLOCK_50
+        .inclk0(CLOCK_50),
+`else
+        .inclk0(CLOCK_27),
+`endif	
+        .areset(0),
+        .c0(clk_100),
+		  .c1(clk_25)
+);
+
+
 reg ce_10m7 = 0;
-reg ce_5m3 = 0;
+
 always @(posedge clk_sys) begin
 	reg [2:0] div;
 	
 	div <= div+1'd1;
 	ce_10m7 <= !div[1:0];
-	ce_5m3  <= !div[2:0];
 end
 
 /////////////////  HPS  ///////////////////////////
@@ -267,44 +310,6 @@ wire [7:0]  key_code;
 wire        key_strobe;
 wire        key_extended;
 
-//user_io #(.STRLEN($size(CONF_STR)>>3)) user_io
-//(
-//	.clk_sys             (clk_sys          ),
-//   .clk_sd              (clk_sys          ),
-//	.SPI_SS_IO           (CONF_DATA0),
-//	.SPI_CLK             (SPI_SCK),
-//	.SPI_MOSI            (SPI_DI),
-//	.SPI_MISO            (SPI_DO),
-//
-//	.conf_str            (CONF_STR),
-//	.status              (status),
-//	.scandoubler_disable (forced_scandoubler),
-//	.ypbpr               (ypbpr),
-//	.no_csync            (),
-//	.buttons             (buttons),
-//	
-//	.ps2_key             (ps2_key),
-//
-//
-//	.joystick_0          (joy0          ),
-//	.joystick_1          (joy1          )
-//);
-//
-//data_io data_io
-//(
-//	.clk_sys             (clk_sys),
-//	.SPI_SCK             (SPI_SCK),
-//	.SPI_DI              (SPI_DI),
-//	.SPI_SS2             (SPI_SS2),
-//
-//	.clkref_n            (),
-//	.ioctl_fileext       (),
-//	.ioctl_wr            (ioctl_wr),
-//	.ioctl_addr          (ioctl_addr),
-//	.ioctl_dout          (ioctl_dout),
-//	.ioctl_download      (ioctl_download),
-//	.ioctl_index         (ioctl_index)
-//);
 
 `ifdef PIN_REFLECTION
 assign joy_clk = joy_xclk;
@@ -329,21 +334,7 @@ user_io
     .SPI_MOSI(SPI_DI),
     .SPI_MISO(SPI_DO),
 
-    .conf_str(CONF_STR),
-    .status(status),
-    .scandoubler_disable(scandoubler_disable),
-    .ypbpr(ypbpr),
-    .no_csync(no_csync),
-    .buttons(buttons),
-    .joystick_0(joy0),
-    .joystick_1(joy1),
-    .key_strobe(key_strobe),
-    .key_code(key_code),
-    .key_pressed(key_pressed),
-    .key_extended(key_extended),
-
-	 
-`ifdef USE_HDMI
+	 `ifdef USE_HDMI
 	 .i2c_start      (i2c_start      ),
 	 .i2c_read       (i2c_read       ),
 	 .i2c_addr       (i2c_addr       ),
@@ -353,7 +344,22 @@ user_io
 	 .i2c_ack        (i2c_ack        ),
 	 .i2c_end        (i2c_end        ),
 	`endif
-	 .switches(switches),
+
+    .conf_str(CONF_STR),
+    .status(status),
+    .scandoubler_disable(scandoubler_disable),
+    .ypbpr(ypbpr),
+    .no_csync(no_csync),
+    .buttons(buttons),
+    .joystick_0(joy0),
+    .joystick_1(joy1),
+	 
+    .key_strobe(key_strobe),
+    .key_code(key_code),
+    .key_pressed(key_pressed),
+    .key_extended(key_extended),
+
+	 .switches(switches)
 
 );
 
@@ -376,8 +382,14 @@ data_io data_io (
 
 /////////////////  RESET  /////////////////////////
 
-wire reset =  status[0] | buttons[1] | ioctl_download | ~BUS_A[15];
+wire reset;
 
+`ifdef USE_EXTBUS
+	 assign reset = status[0] | buttons[1] | ioctl_download |  ~BUS_A[15];
+	 assign BUS_nWR = status[2];
+`else
+	 assign reset =  status[0] | buttons[1] | ioctl_download ;
+`endif
 /////////////////  Memory  ////////////////////////
 
 wire [12:0] bios_a;
@@ -410,19 +422,19 @@ spram #(15) ram   //14 for SiDi and MiST
 	.q(ram_di)
 );
 
-wire [13:0] vram_a;
-wire        vram_we;
-wire  [7:0] vram_di;
-wire  [7:0] vram_do;
+//wire [13:0] vram_a;
+//wire        vram_we;
+//wire  [7:0] vram_di;
+//wire  [7:0] vram_do;
 
-spram #(14) vram
-(
-	.clock(clk_sys),
-	.address(vram_a),
-	.wren(vram_we),
-	.data(vram_do),
-	.q(vram_di)
-);
+//spram #(14) vram
+//(
+//	.clock(clk_sys),
+//	.address(vram_a),
+//	.wren(vram_we),
+//	.data(vram_do),
+//	.q(vram_di)
+//);
 
 wire [19:0] cart_a;
 wire  [7:0] cart_d;
@@ -434,7 +446,7 @@ assign BUS_A[11:0] = cart_a[11:0];
 assign BUS_nIORQ=cart_a[12];
 assign BUS_A[13]=cart_a[13];
 assign BUS_A[12]=cart_a[14];
-wire ext_cart_d= cart_rd ? BUS_D[7:0] : 8'bZ;
+wire [7:0] ext_cart_d= BUS_D[7:0];
 `endif
 
 
@@ -474,10 +486,9 @@ end
 ////////////////  Console  ////////////////////////
 
 wire [13:0] audio;
-wire [15:0] DAC_L,DAC_R;
-
-assign DAC_L = {1'b0,audio[13:0],1'b0};
-assign DAC_R = DAC_L;
+wire [15:0] DAC_L, DAC_R;
+assign DAC_L = {1'b0,audio,1'b0};
+assign DAC_R = {1'b0,audio,1'b0};
 
 `ifdef I2S_AUDIO
 
@@ -495,6 +506,7 @@ i2s i2s (
         .left_chan (DAC_L),
         .right_chan(DAC_R)
 );
+
 `ifdef I2S_AUDIO_HDMI
 assign HDMI_MCLK = 0;
 always @(posedge clk_sys) begin
@@ -535,7 +547,7 @@ audiodac_r(
 
   
 
-wire CLK_VIDEO = clk_sys;
+wire CLK_VIDEO = clk_25;
 
 wire [1:0] ctrl_p1;
 wire [1:0] ctrl_p2;
@@ -557,9 +569,13 @@ wire [31:0] joyb = status[3] ? joy0 : joy1;
 cv_console console
 (
 	.clk_i(clk_sys),
+	.clk_100_i (clk_100),
+   .clk_25_i  (clk_25),
 	.clk_en_10m7_i(ce_10m7),
+	
 	.reset_n_i(~reset),
-	.por_n_o(),
+   .por_n_o(),
+
 	.sg1000(sg1000),
 	.dahjeeA_i(extram),
 
@@ -584,10 +600,10 @@ cv_console console
 	.cpu_ram_d_i(ram_di),
 	.cpu_ram_d_o(ram_do),
 
-	.vram_a_o(vram_a),
-	.vram_we_o(vram_we),
-	.vram_d_o(vram_do),
-	.vram_d_i(vram_di),
+//	.vram_a_o(vram_a),
+//	.vram_we_o(vram_we),
+//	.vram_d_o(vram_do),
+//	.vram_d_i(vram_di),
 
 	.cart_pages_i(cart_pages),
 	.cart_a_o(cart_a),
@@ -620,32 +636,32 @@ cv_console console
 
 //wire [2:0] scale = status[9:7];
 
-reg hs_o, vs_o;
-always @(posedge CLK_VIDEO) begin
-	hs_o <= ~HSync;
-	if(~hs_o & ~HSync) vs_o <= ~VSync;
-end
+//reg hs_o, vs_o;
+//always @(posedge CLK_VIDEO) begin
+//	hs_o <= ~HSync;
+//	if(~hs_o & ~HSync) vs_o <= ~VSync;
+//end
 
 
  
 mist_video #(
     .COLOR_DEPTH(8),
     .OSD_COLOR(3'd3),
-	 .SD_HCNT_WIDTH(10),
+	 .SD_HCNT_WIDTH(11),
 	 .OUT_COLOR_DEPTH(VGA_BITS),
 	 .BIG_OSD(BIG_OSD),
-	 .USE_BLANKS(1'b1)
+	 .USE_BLANKS(1'b0)
 ) 
  mist_video (	
-	.clk_sys      (clk_sys    ),
+	.clk_sys      (CLK_VIDEO  ),
 	.SPI_SCK      (SPI_SCK    ),
 	.SPI_SS3      (SPI_SS3    ),
 	.SPI_DI       (SPI_DI     ),
 	.R            (R ),
 	.G            (G ),
 	.B            (B ),
-	.HSync        (hs_o),
-	.VSync        (vs_o),
+	.HSync        (HSync),
+	.VSync        (VSync),
 	.HBlank       (HBlank),
 	.VBlank       (VBlank),
 	.VGA_R        (VGA_R      ),
@@ -654,15 +670,15 @@ mist_video #(
 	.VGA_VS       (VGA_VS     ),
 	.VGA_HS       (VGA_HS     ),
 	.ce_divider   (3'd0       ),
-	.scandoubler_disable(scandoubler_disable),
-	.scanlines(scandoubler_disable ? 2'b00 : {status[9:7] == 3, status[9:7] == 2}),
-	.no_csync     (no_csync),
+	.scandoubler_disable(1),
+	.scanlines(status[9:7]),
+	.no_csync     (1),
 	.ypbpr        (ypbpr      )
 	);
 
 `ifdef USE_HDMI
-i2c_master #(42_666_000) i2c_master (
-	.CLK         (clk_hdmi),
+i2c_master #(100_000_000) i2c_master (
+	.CLK         (clk_100),
 	.I2C_START   (i2c_start),
 	.I2C_READ    (i2c_read),
 	.I2C_ADDR    (i2c_addr),
@@ -687,14 +703,14 @@ mist_video #(
 )
 
 hdmi_video (
-	.clk_sys     ( clk_sys   ),
+	.clk_sys     ( CLK_VIDEO   ),
 
 	// OSD SPI interface
 	.SPI_SCK     ( SPI_SCK    ),
 	.SPI_SS3     ( SPI_SS3    ),
 	.SPI_DI      ( SPI_DI     ),
-	.scanlines   (  ),
-	.ce_divider  ( 3'd3       ),
+	.scanlines   (status[9:7]),
+	.ce_divider  ( 3'd0       ),
 	.scandoubler_disable (1'b1),
 	.no_csync    ( 1'b1       ),
 	.ypbpr       ( 1'b0       ),
@@ -705,8 +721,8 @@ hdmi_video (
 	.B           (B),
 	.HBlank      ( HBlank      ),
 	.VBlank      ( VBlank      ),
-	.HSync       ( hs_o        ),
-	.VSync       ( vs_o        ),
+	.HSync       ( HSync       ),
+	.VSync       ( VSync       ),
 	.VGA_R       ( HDMI_R      ),
 	.VGA_G       ( HDMI_G      ),
 	.VGA_B       ( HDMI_B      ),
@@ -714,7 +730,7 @@ hdmi_video (
 	.VGA_HS      (HDMI_HS      ),
 	.VGA_DE      ( HDMI_DE     )
 );
-assign HDMI_PCLK = clk_sys;
+assign HDMI_PCLK = CLK_VIDEO;
 `endif	
 //////////////// Keypad emulation (by Alan Steremberg) ///////
 
