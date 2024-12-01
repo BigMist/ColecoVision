@@ -126,38 +126,17 @@ module guest_top
 	input         joy_data,
    output        joy_xdata,	
 `endif
+
 	
 `ifdef USE_EXTBUS	
-	inout [23:0]  BUS_A = 24'b0,
-	inout  [15:0]  BUS_D = 16'b0,
-	inout         BUS_USER1,
-	inout         BUS_USER2,
-	inout         BUS_USER3,
-	inout         BUS_USER5,
-	inout         BUS_USER6,
-	inout         BUS_USER7,
-	inout         BUS_N41,
-	inout         BUS_N42,
-	inout         BUS_N43,
-	inout         BUS_N44,
-	inout         BUS_N45,
-	inout         BUS_N46,
-	inout         BUS_N47,
-	inout         BUS_N48,
-	inout         BUS_nRESET,
-	inout         BUS_nM1,
-	inout         BUS_nMREQ,
-	inout         BUS_nIORQ,
-	inout         BUS_nRD,
-	inout         BUS_nWR,
-	inout         BUS_nRFSH,
-	inout         BUS_nHALT,
-	inout         BUS_nBUSAK,
-	inout reg     BUS_CLK,
-	inout         BUS_nINT,
-	inout         BUS_nWAIT,
-	input         BUS_RX,
-	output        BUS_TX,
+	output  [14:0]  BUS_A,
+	input   [7:0]   BUS_D,
+	output        BUS_E80,
+	output        BUS_EA0,
+	output        BUS_EC0,
+	output        BUS_EE0,
+	input         BUS_nRESET,
+	output        BUS_LED,
 `endif
    input         UART_RX,
 	output        UART_TX
@@ -227,7 +206,7 @@ wire        i2c_end;
 
 
 
-assign LED   = ioctl_download;
+assign LED   = ~ioctl_download;
 
 
 
@@ -250,7 +229,7 @@ parameter CONF_STR = {
 
 /////////////////  CLOCKS  ////////////////////////
 
-wire clk_sys;
+wire clk_sys,clk_ram;
 wire pll_locked;
 pll pll
 (
@@ -261,6 +240,7 @@ pll pll
 `endif		  
         .areset(0),
         .c0(clk_sys),
+//		  .c1(clk_ram),
         .locked(pll_locked)
 );
 
@@ -301,6 +281,8 @@ wire  [7:0] ioctl_index;
 wire        ioctl_wr;
 wire [24:0] ioctl_addr;
 wire  [7:0] ioctl_dout;
+wire        clkref;
+
 wire        scandoubler_disable;
 wire ypbpr;
 wire no_csync;
@@ -370,7 +352,6 @@ data_io data_io (
     .SPI_DI         ( SPI_DI  ),
     // ram interface
     .clk_sys        ( clk_sys ),
-    //.clkref_n       ( ~clk_ref  ),
     .ioctl_download ( ioctl_download ),
     .ioctl_index    ( ioctl_index ),
     .ioctl_wr       ( ioctl_wr ),
@@ -385,8 +366,8 @@ data_io data_io (
 wire reset;
 
 `ifdef USE_EXTBUS
-	 assign reset = status[0] | buttons[1] | ioctl_download |  ~BUS_A[15];
-	 assign BUS_nWR = status[2];
+	 assign reset = status[0] | buttons[1] | ioctl_download |  ~BUS_nRESET;
+	 assign BUS_LED = status[2];
 `else
 	 assign reset =  status[0] | buttons[1] | ioctl_download ;
 `endif
@@ -413,7 +394,7 @@ wire [14:0] ram_a = (extram)            ? cpu_ram_a       :
                     (sg1000)            ? cpu_ram_a[12:0] : // SGM means 8k on SG1000
                                           cpu_ram_a;        // SGM/32k
 
-spram #(15) ram   //14 for SiDi and MiST
+spram #(15) ram  
 (
 	.clock(clk_sys),
 	.address(ram_a),
@@ -422,19 +403,7 @@ spram #(15) ram   //14 for SiDi and MiST
 	.q(ram_di)
 );
 
-//wire [13:0] vram_a;
-//wire        vram_we;
-//wire  [7:0] vram_di;
-//wire  [7:0] vram_do;
 
-//spram #(14) vram
-//(
-//	.clock(clk_sys),
-//	.address(vram_a),
-//	.wren(vram_we),
-//	.data(vram_do),
-//	.q(vram_di)
-//);
 
 wire [19:0] cart_a;
 wire  [7:0] cart_d;
@@ -442,18 +411,45 @@ wire        cart_rd;
 
 
 `ifdef USE_EXTBUS
-assign BUS_A[11:0] = cart_a[11:0];
-assign BUS_nIORQ=cart_a[12];
-assign BUS_A[13]=cart_a[13];
-assign BUS_A[12]=cart_a[14];
-wire [7:0] ext_cart_d= BUS_D[7:0];
+reg [7:0] ext_cart_d;
+always @(posedge clk_sys)
+begin
+  BUS_A      <= cart_a[14:0];
+  ext_cart_d <= BUS_D;
+end
 `endif
 
 
 reg [5:0] cart_pages;
 always @(posedge clk_sys) if(ioctl_wr) cart_pages <= ioctl_addr[19:14];
 
-assign SDRAM_CLK = ~clk_sys;
+altddio_out
+#(
+        .extend_oe_disable("OFF"),
+        .intended_device_family("Cyclone IV GX"),
+        .invert_output("OFF"),
+        .lpm_hint("UNUSED"),
+        .lpm_type("altddio_out"),
+        .oe_reg("UNREGISTERED"),
+        .power_up_high("OFF"),
+        .width(1)
+)
+
+
+sdramclk_ddr
+(
+        .datain_h(1'b0),
+        .datain_l(1'b1),
+        .outclock(clk_sys),
+        .dataout(SDRAM_CLK),
+        .aclr(1'b0),
+        .aset(1'b0),
+        .oe(1'b1),
+        .outclocken(1'b1),
+        .sclr(1'b0),
+        .sset(1'b0)
+);
+
 
 sdram sdram
 (
@@ -485,10 +481,10 @@ end
 
 ////////////////  Console  ////////////////////////
 
-wire [13:0] audio;
+wire [15:0] audio;
 wire [15:0] DAC_L, DAC_R;
-assign DAC_L = {1'b0,audio,1'b0};
-assign DAC_R = {1'b0,audio,1'b0};
+assign DAC_L = audio;
+assign DAC_R = audio;
 
 `ifdef I2S_AUDIO
 
@@ -599,12 +595,6 @@ cv_console console
 	.cpu_ram_ce_n_o(ram_ce_n),
 	.cpu_ram_d_i(ram_di),
 	.cpu_ram_d_o(ram_do),
-
-//	.vram_a_o(vram_a),
-//	.vram_we_o(vram_we),
-//	.vram_d_o(vram_do),
-//	.vram_d_i(vram_di),
-
 	.cart_pages_i(cart_pages),
 	.cart_a_o(cart_a),
 `ifdef USE_EXTBUS
@@ -616,10 +606,10 @@ cv_console console
 	.cart_rd(cart_rd),
 
 `ifdef USE_EXTBUS
-  	.cart_en_80_n_o (BUS_A[14]),
-   .cart_en_a0_n_o (BUS_nRESET),
-   .cart_en_c0_n_o (BUS_CLK),
-   .cart_en_e0_n_o (BUS_nRD),
+  	.cart_en_80_n_o (BUS_E80),
+   .cart_en_a0_n_o (BUS_EA0),
+   .cart_en_c0_n_o (BUS_EC0),
+   .cart_en_e0_n_o (BUS_EE0),
 `endif
 	
 	.rgb_r_o(R),
@@ -634,13 +624,6 @@ cv_console console
 );
 
 
-//wire [2:0] scale = status[9:7];
-
-//reg hs_o, vs_o;
-//always @(posedge CLK_VIDEO) begin
-//	hs_o <= ~HSync;
-//	if(~hs_o & ~HSync) vs_o <= ~VSync;
-//end
 
 
  

@@ -199,22 +199,17 @@ set_location_assignment PIN_AE3 -to joy_xload
 set_location_assignment PIN_AF5 -to joy_xdata
 
 
-set_location_assignment PIN_A13 -to BUS_N43
-set_location_assignment PIN_C14 -to BUS_nWAIT
-set_location_assignment PIN_B15 -to BUS_nWR
-set_location_assignment PIN_A21 -to BUS_nM1
-set_location_assignment PIN_C13 -to BUS_nMREQ
-set_location_assignment PIN_C15 -to BUS_nRD
-set_location_assignment PIN_A17 -to BUS_nRESET
-set_location_assignment PIN_A15 -to BUS_nIORQ
-set_location_assignment PIN_B11 -to BUS_nINT
+set_location_assignment PIN_B2 -to BUS_E80
+set_location_assignment PIN_A17 -to BUS_EA0
+set_location_assignment PIN_A6 -to BUS_EC0
+set_location_assignment PIN_C15 -to BUS_EE0
 
-set_location_assignment PIN_A6 -to BUS_CLK
-set_location_assignment PIN_C12 -to BUS_nRFSH
-set_location_assignment PIN_E1 -to BUS_A[15]
-set_location_assignment PIN_B2 -to BUS_A[14]
+set_location_assignment PIN_E1 -to BUS_nRESET
+set_location_assignment PIN_B15 -to BUS_LED
+
+set_location_assignment PIN_A3 -to BUS_A[14]
 set_location_assignment PIN_E2 -to BUS_A[13]
-set_location_assignment PIN_A3 -to BUS_A[12]
+set_location_assignment PIN_A15 -to BUS_A[12]
 set_location_assignment PIN_B23 -to BUS_A[11]
 set_location_assignment PIN_B22 -to BUS_A[10]
 set_location_assignment PIN_B21 -to BUS_A[9]
@@ -227,6 +222,7 @@ set_location_assignment PIN_A11 -to BUS_A[3]
 set_location_assignment PIN_A10 -to BUS_A[2]
 set_location_assignment PIN_A9 -to BUS_A[1]
 set_location_assignment PIN_A8 -to BUS_A[0]
+
 
 set_location_assignment PIN_A5 -to BUS_D[7]
 set_location_assignment PIN_A7 -to BUS_D[6]
@@ -246,7 +242,6 @@ set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_D[4]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_D[5]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_D[6]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_D[7]
-set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_D[8]
 
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_D[0]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_D[1]
@@ -270,19 +265,14 @@ set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_A[9]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_A[10]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_A[13]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_A[14]
-set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to BUS_A[15]
 
 
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_nRD
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_nWR
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_nM1
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_nMREQ
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_nIORQ
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_nWAIT
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_nINT
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_RFSH
+
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_nRESET
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_CLK
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_E80
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_EA0
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_EC0
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to BUS_EE0
 
 set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_D[1]
 set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_D[2]
@@ -292,6 +282,21 @@ set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_D[5
 set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_D[6]
 set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_D[7]
 set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_D[0]
+
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[0]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[1]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[2]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[3]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[4]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[5]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[6]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[7]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[9]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[10]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[11]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[12]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[13]
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to BUS_A[14]
 
 
 set_global_assignment -name VERILOG_MACRO "I2S_AUDIO=1"
@@ -307,10 +312,10 @@ set_global_assignment -name VERILOG_MACRO "VGA_8BIT=1"
 set_global_assignment -name VERILOG_MACRO "QMTECH=1"
 set_global_assignment -name VERILOG_MACRO "INTERNAL_MT32=1"
 set_global_assignment -name VERILOG_MACRO "PIN_REFLECTION=1"
-set_global_assignment -name VERILOG_MACRO "USE_EXTBUS=1"
-set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
+set_global_assignment -name QIP_FILE pll.qip
 set_global_assignment -name SDC_FILE ColecoVision.sdc
 set_global_assignment -name QIP_FILE ../rtl/f18a/f18a.qip
 set_global_assignment -name QIP_FILE "../mist-modules/mist.qip"
 set_global_assignment -name QIP_FILE ../files.qip
-set_global_assignment -name VERILOG_FILE pll.v
+set_global_assignment -name VERILOG_MACRO "USE_EXTBUS=1"
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

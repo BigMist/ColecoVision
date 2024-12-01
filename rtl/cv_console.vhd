@@ -98,11 +98,7 @@ entity cv_console is
     cpu_ram_we_n_o  : out std_logic;
     cpu_ram_d_i     : in  std_logic_vector( 7 downto 0);
     cpu_ram_d_o     : out std_logic_vector( 7 downto 0);
-    -- Video RAM Interface ----------------------------------------------------
---    vram_a_o        : out std_logic_vector(13 downto 0);
---    vram_we_o       : out std_logic;
---    vram_d_o        : out std_logic_vector( 7 downto 0);
---    vram_d_i        : in  std_logic_vector( 7 downto 0);
+
     -- Cartridge ROM Interface ------------------------------------------------
     cart_a_o        : out std_logic_vector(19 downto 0);
     cart_pages_i    : in  std_logic_vector( 5 downto 0);
@@ -126,7 +122,7 @@ entity cv_console is
     vblank_o        : out std_logic;
     comp_sync_n_o   : out std_logic;
     -- Audio Interface --------------------------------------------------------
-    audio_o         : out std_logic_vector(13 downto 0)
+    audio_o         : out std_logic_vector(15 downto 0)
   );
 
 end cv_console;
@@ -145,6 +141,7 @@ architecture struct of cv_console is
 
   signal clk_en_3m58_p_s  : std_logic;
   signal clk_en_3m58_n_s  : std_logic;
+  signal clk_en_cpu_s     : std_logic;
 
   -- CPU signals
   signal wait_n_s         : std_logic;
@@ -171,6 +168,9 @@ architecture struct of cv_console is
   -- SN76489 signal
   signal psg_ready_s      : std_logic;
   signal psg_b_audio_s    : unsigned( 13 downto 0);
+   -- Audio Mixing
+  signal pcm16_r                         : unsigned (15 downto 0) := (others => '0');
+  signal pcm16_x                         : unsigned (15 downto 0);
 
   -- AY-8910 signal
   signal ay_d_s           : std_logic_vector( 7 downto 0);
@@ -178,7 +178,7 @@ architecture struct of cv_console is
   signal ay_ch_b_s        : unsigned( 11 downto 0);
   signal ay_ch_c_s        : unsigned( 11 downto 0);
 
-  signal psg_a_audio_s    : unsigned( 13 downto 0);
+  signal psg_a_audio_s    : std_logic_vector( 14 downto 0);
 
   -- Controller signals
   signal d_from_ctrl_s    : std_logic_vector( 7 downto 0);
@@ -204,17 +204,54 @@ architecture struct of cv_console is
   signal cart_page_s      : std_logic_vector(5 downto 0);
 
   signal cart_en_sg1000_n_s : std_logic;
-  -- misc signals
-  signal vdd_s            : std_logic;
 
   -- pragma translate_off
   file logfile: text is out "access.txt";
   -- pragma translate_on
 
+ component psg is
+  port (
+    clock : in  std_logic;         -- main clock (at least twice clock enable)
+    sel   : in  std_logic;         -- 0 for a further division by two (same as YM2149)
+    ce    : in  std_logic;         -- clock enable (posedge clock)
+
+    reset : in  std_logic;         -- active-low asynchronous reset
+    bdir  : in  std_logic;         -- bus direction
+    bc1   : in  std_logic;         -- bus control (bc2 is always 1)
+    d     : in  std_logic_vector(7 downto 0);  -- data in
+    q     : out std_logic_vector(7 downto 0);  -- data out
+
+    a     : out std_logic_vector(11 downto 0); -- audio channel a (12 bit unsigned)
+    b     : out std_logic_vector(11 downto 0); -- audio channel b (12 bit unsigned)
+    c     : out std_logic_vector(11 downto 0); -- audio channel c (12 bit unsigned)
+    mix   : out std_logic_vector(14 downto 0); -- mix of all three channels (14 bit unsigned)
+
+    ioad  : in  std_logic_vector(7 downto 0);  -- io port a data in
+    ioaq  : out std_logic_vector(7 downto 0);  -- io port a data out
+
+    iobd  : in  std_logic_vector(7 downto 0);  -- io port b data in
+    iobq  : out std_logic_vector(7 downto 0)   -- io port b data out
+  );
+end component psg;
+
 begin
 
-  vdd_s <= '1';
-  audio_o <= std_logic_vector(psg_b_audio_s + psg_a_audio_s);
+
+  -- Mix the 14-bit signed PCM audio signals into a signed 16-bit PCM sample.
+  pcm16_x <= (
+     (unsigned(psg_a_audio_s)) +
+     (psg_b_audio_s(13) &  psg_b_audio_s) ) & "0";
+
+  audio_o <= std_logic_vector(pcm16_r);
+
+  -- Register the final audio sample.
+  process (clk_i) begin
+   if rising_edge(clk_i) then
+   if clk_en_3m58_p_s = '1' then
+      pcm16_r <= pcm16_x;
+   end if;
+  end if; end process;
+  
   int_n_s <= ctrl_int_n_s  when sg1000 = '0' else vdp_int_n_s;
   nmi_n_s <= vdp_int_n_s   when sg1000 = '0' else joy0_i(7) and joy1_i(7);
 
@@ -244,6 +281,7 @@ begin
   -----------------------------------------------------------------------------
   -- T80 CPU
   -----------------------------------------------------------------------------
+  
   t80a_b : work.T80pa
     generic map (
       Mode       => 0
@@ -256,7 +294,7 @@ begin
       WAIT_n     => wait_n_s,
       INT_n      => int_n_s,
       NMI_n      => nmi_n_s,
-      BUSRQ_n    => vdd_s,
+      BUSRQ_n    => '1',
       M1_n       => m1_n_s,
       MREQ_n     => mreq_n_s,
       IORQ_n     => iorq_n_s,
@@ -270,21 +308,26 @@ begin
       DO         => d_from_cpu_s
     );
 
-  psg_a: work.ym2149_audio
+
+psg_a: psg
   port map (
-    clk_i       => clk_i,
-    en_clk_psg_i=> clk_en_3m58_p_s,
-    reset_n_i   => reset_n_s,
-    bdir_i      => not ay_addr_we_n_s or not ay_data_we_n_s,
-    bc_i        => not ay_addr_we_n_s or not ay_data_rd_n_s,
-    data_i      => d_from_cpu_s,
-    data_r_o    => ay_d_s,
-    ch_a_o      => ay_ch_a_s,
-    ch_b_o      => ay_ch_b_s,
-    ch_c_o      => ay_ch_c_s,
-    mix_audio_o => psg_a_audio_s,
-    sel_n_i     => '0'
-    );
+    clock    => clk_i,
+    sel      => '0',
+    ce       => clk_en_3m58_p_s,
+    reset    => reset_n_s,
+    bdir     => not ay_addr_we_n_s or not ay_data_we_n_s,
+    bc1      => not ay_addr_we_n_s or not ay_data_rd_n_s,
+    d        => d_from_cpu_s,
+    q        => ay_d_s,
+    a        => open,
+    b        => open,
+    c        => open,
+    mix      => psg_a_audio_s,
+    ioad     => (others => '0'),
+    ioaq     => open,
+    iobd     => (others => '0'),
+    iobq     => open
+  );
 
   -----------------------------------------------------------------------------
   -- Process m1_wait
@@ -305,44 +348,9 @@ begin
 
   wait_n_s  <= psg_ready_s and not m1_wait_q;
 
-  --
+  
   -----------------------------------------------------------------------------
 
-
---  -----------------------------------------------------------------------------
---  -- TMS9928A Video Display Processor
---  -----------------------------------------------------------------------------
---  vdp18_b : work.vdp18_core
---    generic map (
---      is_pal_g      => is_pal_g,
---      compat_rgb_g  => compat_rgb_g
---    )
---    port map (
---      clk_i         => clk_i,
---      clk_en_10m7_i => clk_en_10m7_i,
---      reset_n_i     => reset_n_s,
---      csr_n_i       => vdp_r_n_s,
---      csw_n_i       => vdp_w_n_s,
---      mode_i        => a_s(0),
---      int_n_o       => vdp_int_n_s,
---      cd_i          => d_from_cpu_s,
---      cd_o          => d_from_vdp_s,
---      vram_we_o     => vram_we_o,
---      vram_a_o      => vram_a_o,
---      vram_d_o      => vram_d_o,
---      vram_d_i      => vram_d_i,
---      col_o         => col_o,
---      rgb_r_o       => rgb_r_o,
---      rgb_g_o       => rgb_g_o,
---      rgb_b_o       => rgb_b_o,
---      hsync_n_o     => hsync_n_o,
---      vsync_n_o     => vsync_n_o,
---      --blank_n_o     => blank_n_o,
---      --border_i      => border_i,
---      hblank_o      => hblank_o,
---      vblank_o      => vblank_o,
---      comp_sync_n_o => comp_sync_n_o
---    );
 
   -----------------------------------------------------------------------------
   -- TMS9928A Video Display Processor
@@ -367,7 +375,7 @@ begin
       blank_o       => blank_n_o,
       hblank_o      => hblank_o,
       vblank_o      => vblank_o,
-		sprite_max_i  => '0',
+		sprite_max_i  => '1',
       scanlines_i   => '0', 
 		
 		spi_clk_o     =>open,
@@ -395,7 +403,7 @@ begin
       wr_n_i       => psg_we_n_s,
       ready_o      => psg_ready_s,
       data_i       => d_from_cpu_s,
-      mix_audio_o  => psg_b_audio_s
+      pcm14s_o     => psg_b_audio_s
     );
 
 

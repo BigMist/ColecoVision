@@ -579,7 +579,7 @@ begin
       ntba_s(0 to 1) & vto_r(0) & hto_r(0) & vto_r(1 to 5) & hto_r(1 to 5);   -- gm1, gm2, mcm
 
    -- Modify the attribute address based on tile name vs tile position.
-   process (pos_attr_i, textmode_r, vdin, textattr_r, vto_r, hto_r, vto_r, hto_r, ctba_s)
+   process (pos_attr_i, textmode_r, vdin, textattr_r, vto_r, hto_r, ctba_s)
    begin
 --    attr_name_vs_pos_s <= ("000000" & name_r);
       attr_name_vs_pos_s <= (ctba_s & "000000") + ("000000" & vdin);
